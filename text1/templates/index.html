@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加密解密系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>加密解密系统</h1>
+
+    <!-- 加密部分 -->
+    <div>
+        <h3>加密数据</h3>
+        <textarea id="data" placeholder="输入需要加密的数据"></textarea><br>
+        
+        <div class="form-group">
+            <h4>设置访问策略</h4>
+            <div class="attribute-group">
+                <label>部门要求：</label>
+                <select id="deptPolicy">
+                    <option value="any">任意部门</option>
+                    <option value="研发部">研发部</option>
+                    <option value="市场部">市场部</option>
+                    <option value="人事部">人事部</option>
+                </select>
+            </div>
+            
+            <div class="attribute-group">
+                <label>职位要求：</label>
+                <select id="positionPolicy">
+                    <option value="any">任意职位</option>
+                    <option value="总监">总监</option>
+                    <option value="经理">经理</option>
+                    <option value="员工">员工</option>
+                </select>
+            </div>
+            
+            <div class="attribute-group">
+                <label>工作年限要求：</label>
+                <select id="expPolicy">
+                    <option value="any">不限</option>
+                    <option value=">=3">3年以上</option>
+                    <option value=">=5">5年以上</option>
+                    <option value=">=10">10年以上</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <h4>模拟用户属性</h4>
+            <div class="attribute-group">
+                <label>用户部门：</label>
+                <select id="userDept">
+                    <option value="研发部">研发部</option>
+                    <option value="市场部">市场部</option>
+                    <option value="人事部">人事部</option>
+                </select>
+            </div>
+            
+            <div class="attribute-group">
+                <label>用户职位：</label>
+                <select id="userPosition">
+                    <option value="总监">总监</option>
+                    <option value="经理">经理</option>
+                    <option value="员工">员工</option>
+                </select>
+            </div>
+            
+            <div class="attribute-group">
+                <label>工作年限：</label>
+                <select id="userExp">
+                    <option value="2">2年</option>
+                    <option value="4">4年</option>
+                    <option value="6">6年</option>
+                    <option value="12">12年</option>
+                </select>
+            </div>
+        </div>
+
+        <button onclick="encryptData()">加密</button>
+        <div id="encryptedResult"></div>
+    </div>
+
+    <!-- 解密部分 -->
+    <div>
+        <h3>解密数据</h3>
+        <textarea id="encryptedData" placeholder="输入加密数据"></textarea><br>
+        <textarea id="key" placeholder="输入密钥"></textarea><br>
+        <button onclick="decryptData()">解密</button>
+        <div id="decryptedResult"></div>
+    </div>
+
+        </pre>
+    </div>
+
+    <script>
+        function buildPolicy() {
+            const conditions = [];
+            
+            const deptPolicy = document.getElementById("deptPolicy").value;
+            if (deptPolicy !== "any") {
+                conditions.push(`department = ${deptPolicy}`);
+            }
+            
+            const positionPolicy = document.getElementById("positionPolicy").value;
+            if (positionPolicy !== "any") {
+                conditions.push(`position = ${positionPolicy}`);
+            }
+            
+            const expPolicy = document.getElementById("expPolicy").value;
+            if (expPolicy !== "any") {
+                conditions.push(`experience ${expPolicy}`);
+            }
+            
+            return JSON.stringify({
+                operator: "AND",
+                conditions: conditions
+            });
+        }
+
+        function getUserAttributes() {
+            return {
+                department: document.getElementById("userDept").value,
+                position: document.getElementById("userPosition").value,
+                experience: parseInt(document.getElementById("userExp").value)
+            };
+        }
+
+        function encryptData() {
+            const data = document.getElementById("data").value;
+            if (!data) {
+                alert("请输入需要加密的数据");
+                return;
+            }
+
+            const policy = buildPolicy();
+            const userAttributes = getUserAttributes();
+            
+            const requestData = {
+                data: data,
+                policy: policy,
+                user_attributes: userAttributes
+            };
+
+            fetch('/encrypt', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('错误: ' + data.error);
+                } else {
+                    document.getElementById("encryptedResult").innerHTML = 
+                        '<div class="result-item">加密后的数据: ' + data.encrypted_data + '</div>' +
+                        '<div class="result-item">密钥: ' + data.key + '</div>';
+                }
+            })
+            .catch(error => {
+                console.error('请求失败:', error);
+                alert('请求失败，请检查控制台获取更多信息');
+            });
+        }
+
+        // 解密请求函数
+        function decryptData() {
+            const encryptedData = document.getElementById("encryptedData").value;
+            const key = document.getElementById("key").value;
+
+            const requestData = {
+                encrypted_data: encryptedData,
+                key: key
+            };
+
+            fetch('/decrypt', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('错误: ' + data.error);
+                } else {
+                    // 显示解密后的数据
+                    document.getElementById("decryptedResult").innerText =
+                        '解密后的数据: ' + data.decrypted_data;
+                }
+            })
+            .catch(error => {
+                console.error('请求失败:', error);
+                alert('请求失败，请检查控制台获取更多信息');
+            });
+        }
+    </script>
+</body>
+</html>
